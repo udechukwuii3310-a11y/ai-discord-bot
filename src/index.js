@@ -1,5 +1,10 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits, PermissionsBitField } = require("discord.js");
+const OpenAI = require("openai");
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const client = new Client({
   intents: [
@@ -9,15 +14,12 @@ const client = new Client({
   ]
 });
 
-// ================= READY =================
 client.once("clientReady", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-// ================= BAD WORD FILTER =================
-const bannedWords = ["badword1", "badword2"]; // add real ones if you want
+const bannedWords = ["badword1", "badword2"];
 
-// ================= MESSAGE HANDLER =================
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
@@ -44,7 +46,6 @@ Talk normally → AI response
     `);
   }
 
-  // 🔹 Kick Command (Moderation)
   if (content.startsWith("!kick")) {
     if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
       return message.reply("You don't have permission to kick members.");
@@ -57,9 +58,26 @@ Talk normally → AI response
     return message.channel.send(`${member.user.tag} has been kicked.`);
   }
 
-  // 🔹 Basic AI-style response (temporary)
+  // 🔹 AI Response
   if (!content.startsWith("!")) {
-    return message.reply(`You said: "${message.content}"`);
+    try {
+      await message.channel.sendTyping();
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are a helpful and friendly Discord AI assistant." },
+          { role: "user", content: message.content }
+        ],
+      });
+
+      const reply = completion.choices[0].message.content;
+      return message.reply(reply);
+
+    } catch (error) {
+      console.error(error);
+      return message.reply("⚠️ AI error occurred.");
+    }
   }
 });
 
